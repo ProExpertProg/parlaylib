@@ -30,20 +30,13 @@ inline void par_do(Lf&& left, Rf&& right, bool) {
   cilk_sync;
 }
 
+// Benchmarking fork: every parallel_for is a cilk_for, so that the runtime grainsize (CILK_GRAINSIZE) and the compile-time
+// coarsening factor apply to all loops. The granularity requested by the caller is ignored; the unmodified plugin only uses
+// cilk_for for granularity 0 and otherwise runs small ranges serially and splits larger ones with a cilk_spawn recursion.
 template <typename F>
-inline void parallel_for(size_t start, size_t end, F&& f, long granularity, bool) {
+inline void parallel_for(size_t start, size_t end, F&& f, long, bool) {
   static_assert(std::is_invocable_v<F&, size_t>);
-  if (granularity == 0)
-    cilk_for (size_t i=start; i<end; i++) f(i);
-  else if ((end - start) <= static_cast<size_t>(granularity))
-    for (size_t i=start; i < end; i++) f(i);
-  else {
-    size_t n = end-start;
-    size_t mid = (start + (9*(n+1))/16);
-    cilk_spawn parallel_for(start, mid, f, granularity);
-    parallel_for(mid, end, f, granularity);
-    cilk_sync;
-  }
+  cilk_for (size_t i=start; i<end; i++) f(i);
 }
 
 template <typename... Fs>
